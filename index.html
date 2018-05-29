@@ -25,7 +25,7 @@
       function initMap() {
         // Information of Location
         var options = {
-          zoom:4,
+          zoom:5,
           center: new google.maps.LatLng(-34.45, -68.60),
           styles: [
             {elementType: 'geometry', stylers: [{color: '#242f3e'}]},
@@ -121,7 +121,7 @@
           scale: 0.05,
           strokeColor: '#005300',
           strokeWeight: 1,
-          anchor: new google.maps.Point(10, 5),
+          anchor: new google.maps.Point(0, 0),
           rotation: rot
         }
         marker.setIcon(ayon);
@@ -138,7 +138,7 @@
           scale: 0.05,
           strokeColor: '#005300',
           strokeWeight: 1,
-          anchor: new google.maps.Point(10, 5),
+          anchor: new google.maps.Point(0, 0),
 
         }
 
@@ -214,8 +214,8 @@
 
       socket.on('POSITION',function(data){
         console.log('respuesta a POSITION: ' + data);
-        //formula para obtener la inclinacion
         if (validos[data.code]){
+          //formula para obtener la inclinacion
           angle = Math.PI + Math.atan2(poscicion_aviones[data.code][0] - data.position[0], poscicion_aviones[data.code][1] - data.position[1]);
           if (angle * 180 / Math.PI>360){
             changeMarkerPosition(validos[data.code], data.position, (angle * 180 / Math.PI)-360);
@@ -223,7 +223,7 @@
           else {
             changeMarkerPosition(validos[data.code], data.position, angle * 180 / Math.PI);
           }
-
+          //rastro del vuelo
           var flightPlan = [
             {lat: poscicion_aviones[data.code][0], lng: poscicion_aviones[data.code][1]},
             {lat: data.position[0], lng: data.position[1]}
@@ -231,13 +231,15 @@
           var flightPath = new google.maps.Polyline({
             path: flightPlan,
             geodesic: true,
-            strokeColor: '#FE642E',
+            strokeColor: '#29b252',
             strokeOpacity: 0.9,
             strokeWeight: 4
           });
           flightPath.setMap(map);
+          //acutalizar diccionario
           poscicion_aviones[data.code] = data.position;
         }
+        //si no, empiezo uno nuevo
         else{
           poscicion_aviones[data.code] = data.position;
           var plane_data = dict_aviones[data.code];
@@ -247,7 +249,6 @@
           };
           validos[data.code] = crear_avion(information, map);
         }
-
 
         });
 
