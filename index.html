@@ -1,0 +1,262 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Vuelos T3</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+
+    <style>
+      #map {
+                width: 100%;
+                height: 650px;
+              }
+    </style>
+  </head>
+  <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+    <script>
+      var dict_aviones = {};
+      var dict_aeropuertos={};
+      var validos = {};
+      var poscicion_aviones = {};
+      var map;
+
+      //funcion para iniciar el mapa de google maps
+      function initMap() {
+        // Information of Location
+        var options = {
+          zoom:4,
+          center: new google.maps.LatLng(-34.45, -68.60),
+          styles: [
+            {elementType: 'geometry', stylers: [{color: '#242f3e'}]},
+            {elementType: 'labels.text.stroke', stylers: [{color: '#242f3e'}]},
+            {elementType: 'labels.text.fill', stylers: [{color: '#746855'}]},
+            {
+              featureType: 'administrative.locality',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#d59563'}]
+            },
+            {
+              featureType: 'poi',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#d59563'}]
+            },
+            {
+              featureType: 'poi.park',
+              elementType: 'geometry',
+              stylers: [{color: '#263c3f'}]
+            },
+            {
+              featureType: 'poi.park',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#6b9a76'}]
+            },
+            {
+              featureType: 'road',
+              elementType: 'geometry',
+              stylers: [{color: '#38414e'}]
+            },
+            {
+              featureType: 'road',
+              elementType: 'geometry.stroke',
+              stylers: [{color: '#212a37'}]
+            },
+            {
+              featureType: 'road',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#9ca5b3'}]
+            },
+            {
+              featureType: 'road.highway',
+              elementType: 'geometry',
+              stylers: [{color: '#746855'}]
+            },
+            {
+              featureType: 'road.highway',
+              elementType: 'geometry.stroke',
+              stylers: [{color: '#1f2835'}]
+            },
+            {
+              featureType: 'road.highway',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#f3d19c'}]
+            },
+            {
+              featureType: 'transit',
+              elementType: 'geometry',
+              stylers: [{color: '#2f3948'}]
+            },
+            {
+              featureType: 'transit.station',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#d59563'}]
+            },
+            {
+              featureType: 'water',
+              elementType: 'geometry',
+              stylers: [{color: '#17263c'}]
+            },
+            {
+              featureType: 'water',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#515c6d'}]
+            },
+            {
+              featureType: 'water',
+              elementType: 'labels.text.stroke',
+              stylers: [{color: '#17263c'}]
+            }
+          ]
+        }
+        map = new google.maps.Map(document.getElementById('map'), options);
+      }
+      //mover marcador (solo sirve para aviones, ellos se mueven)
+      function changeMarkerPosition(marker, position, rot) {
+        var latlng = new google.maps.LatLng(position[0], position[1]);
+        marker.setPosition(latlng);
+        ayon={
+          path: "M510,255c0-20.4-17.85-38.25-38.25-38.25H331.5L204,12.75h-51l63.75,204H76.5l-38.25-51H0L25.5,255L0,344.25h38.25    l38.25-51h140.25l-63.75,204h51l127.5-204h140.25C492.15,293.25,510,275.4,510,255z",
+          fillColor: '#db1111',
+          fillOpacity: 0.9,
+          scale: 0.05,
+          strokeColor: '#005300',
+          strokeWeight: 1,
+          anchor: new google.maps.Point(10, 5),
+          rotation: rot
+        }
+        marker.setIcon(ayon);
+      }
+
+      //ahora agrego marcadores personalizados para los aeropuertos y aviones
+      //primero los aviones
+      function crear_avion(settings, map){
+
+        ayon={
+          path: "M510,255c0-20.4-17.85-38.25-38.25-38.25H331.5L204,12.75h-51l63.75,204H76.5l-38.25-51H0L25.5,255L0,344.25h38.25    l38.25-51h140.25l-63.75,204h51l127.5-204h140.25C492.15,293.25,510,275.4,510,255z",
+          fillColor: '#db1111',
+          fillOpacity: 0.9,
+          scale: 0.05,
+          strokeColor: '#005300',
+          strokeWeight: 1,
+          anchor: new google.maps.Point(10, 5),
+
+        }
+
+        var avion = new google.maps.Marker({position:settings.coords,map:map,icon:ayon});
+        //si tengo la informacion agrego una ventana visible cuando hago mouseover
+
+        //creo una interaccion que muetre la informacion cuando pongo el mouse encima de este avion
+        var infoWindow = new google.maps.InfoWindow({content:settings.content});
+        avion.addListener('mouseover', function(){infoWindow.open(map, avion)});
+        avion.addListener('mouseout', function() {infoWindow.close()});
+
+        //retorno el avion para guardarlo en mi lista
+
+        return avion;
+      }
+
+      //crear nuevo aeropuerto
+      function crear_aeropuerto(settings, map){
+        //pongo el marcador
+        var aeropuerto = new google.maps.Marker({position:settings.coords,map:map});
+        //creo una interaccion que muetre la informacion cuando pongo el mouse encima de este aeropuerto
+        var infoWindow = new google.maps.InfoWindow({content:settings.descripcion});
+        aeropuerto.addListener('mouseover', function(){infoWindow.open(map, aeropuerto)});
+        aeropuerto.addListener('mouseout', function() {infoWindow.close()});
+
+        return aeropuerto
+      }
+
+      // crar nueva linea
+      function crear_linea(data,mapa,dict_aviones){
+        for (var i = 0; i < data.length; i++){
+          var vuelo = data[i];
+          var origen = vuelo.origin;
+          var destino = vuelo.destination;
+          var flightPlanCoordinates  = [
+            {lat: destino.airport_position[0], lng: destino.airport_position[1]},
+            {lat: origen.airport_position[0], lng: origen.airport_position[1]}
+          ];
+
+          var flightPath = new google.maps.Polyline({
+            path: flightPlanCoordinates,
+            geodesic: true,
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.9,
+            strokeWeight: 4
+          });
+
+          flightPath.setMap(map);
+          dict_aviones[vuelo.code]=vuelo
+      }}
+
+      //ahora puedo agregar con estas funcoines los aeropuertos y aviones que se obtienen del socket
+      console.log('iniciando al socket');
+      var socket = io.connect('wss://integracion-tarea-3.herokuapp.com', {"path": "/flights"});
+
+      socket.on('FLIGHTS', function(data){
+        crear_linea(data,map,dict_aviones)
+      });
+
+      socket.on('AIRPORTS', function(data){
+        var aeropuertos=Object.keys(data);
+        for (var i = 0; i < aeropuertos.length; i++){
+          var airport = data[aeropuertos[i]];
+          settings_airport = {
+           coords: {lat:airport.airport_position[0], lng: airport.airport_position[1]},
+           descripcion:'<h4>'+ airport.name + ' ('+ airport.airport_code +')' +'</h4>\n<h6>'+ airport.city +', ' + airport.country + ' ('+ airport.country_code +')' +'</h6>'
+          }
+          dict_aeropuertos[airport.airport_code]=airport
+          crear_aeropuerto(settings_airport,map);
+        }
+      });
+
+
+      socket.on('POSITION',function(data){
+        console.log('respuesta a POSITION: ' + data);
+        //formula para obtener la inclinacion
+        if (validos[data.code]){
+          angle = Math.PI + Math.atan2(poscicion_aviones[data.code][0] - data.position[0], poscicion_aviones[data.code][1] - data.position[1]);
+          if (angle * 180 / Math.PI>360){
+            changeMarkerPosition(validos[data.code], data.position, (angle * 180 / Math.PI)-360);
+          }
+          else {
+            changeMarkerPosition(validos[data.code], data.position, angle * 180 / Math.PI);
+          }
+
+          var flightPlan = [
+            {lat: poscicion_aviones[data.code][0], lng: poscicion_aviones[data.code][1]},
+            {lat: data.position[0], lng: data.position[1]}
+          ];
+          var flightPath = new google.maps.Polyline({
+            path: flightPlan,
+            geodesic: true,
+            strokeColor: '#FE642E',
+            strokeOpacity: 0.9,
+            strokeWeight: 4
+          });
+          flightPath.setMap(map);
+          poscicion_aviones[data.code] = data.position;
+        }
+        else{
+          poscicion_aviones[data.code] = data.position;
+          var plane_data = dict_aviones[data.code];
+          var information = {
+            coords: {lat:data.position[0], lng: data.position[1]},
+            content:'<h3>Vuelo '+ data.code + ' - Operado por:'+ plane_data.airline  +'</h3>\n<h4>Origen: '+ plane_data.origin.name +'</h4>\n<h4>Destino: '+ plane_data.destination.name +'</h4>\n<h5>Asientos: '+ plane_data.seats+'</h5>'
+          };
+          validos[data.code] = crear_avion(information, map);
+        }
+
+
+        });
+
+      socket.emit('FLIGHTS',{});
+      socket.emit('AIRPORTS',{});
+
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC4FE6d3eGBcPL785G1_h6Vt9DZ3ItRg3A&callback=initMap"
+    async defer></script>
+    <div id="map"></div>
+  </body>
+</html>
